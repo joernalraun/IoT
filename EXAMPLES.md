@@ -1,4 +1,4 @@
-# Calliope Mini WiFi Examples
+# Calliope mini WiFi Examples
 
 Complete examples for using TCP/IP communication with your IoT platform.
 
