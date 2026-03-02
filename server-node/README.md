@@ -1,6 +1,6 @@
 # IoT Platform Server v2.0
 
-A self-hosted IoT data platform for **Calliope Mini** with ESP WiFi extension. Collects sensor data, sends commands to devices, and provides a real-time dashboard with configurable feed widgets.
+A self-hosted IoT data platform for **Calliope mini** with WiFi extension. Collects sensor data, sends commands to devices, and provides a real-time dashboard with configurable feed widgets.
 
 Built with Node.js/Express, SQLite, and optional MQTT bridging. No cloud dependency.
 
@@ -18,7 +18,7 @@ Built with Node.js/Express, SQLite, and optional MQTT bridging. No cloud depende
 ## Architecture
 
 ```
-Calliope Mini + ESP WiFi
+Calliope mini + ESP WiFi
         |
         | HTTP POST /api/sensor
         v
@@ -289,7 +289,7 @@ This allows mixing HTTP devices (Calliope/ESP) with MQTT devices on the same pla
 
 ## Usage Examples
 
-### Calliope Mini (MakeCode)
+### Calliope mini (MakeCode)
 
 Using the WiFi extension:
 
@@ -524,4 +524,4 @@ MIT
 
 ---
 
-Made for Calliope Mini IoT Projects
+Made for Calliope mini IoT Projects
