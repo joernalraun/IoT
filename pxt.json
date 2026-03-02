@@ -1,0 +1,23 @@
+{
+    "name": "RLP IoT",
+    "version": "0.3.0",
+    "description": "RLP IoT and LoRa extension including AHT20, SCD30, ultrasonic distance and soil humidity sensors",
+    "license": "MIT",
+    "dependencies": {
+        "core": "*"
+    },
+    "files": [
+        "README.md",
+        "sensoren.ts",
+        "wifi.ts",
+        "lora.ts"
+    ],
+    "testFiles": [
+        "test.ts"
+    ],
+    "public": true,
+    "supportedTargets": [
+        "calliopemini"
+    ],
+    "preferredEditor": "tsprj"
+}

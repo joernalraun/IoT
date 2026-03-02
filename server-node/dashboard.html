@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Platform Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --primary: #667eea;
+            --primary-dark: #5a67d8;
+            --accent: #764ba2;
+            --green: #48bb78;
+            --red: #f56565;
+            --orange: #ed8936;
+            --gray-50: #f7fafc;
+            --gray-100: #edf2f7;
+            --gray-200: #e2e8f0;
+            --gray-300: #cbd5e0;
+            --gray-500: #a0aec0;
+            --gray-600: #718096;
+            --gray-700: #4a5568;
+            --gray-800: #2d3748;
+            --gray-900: #1a202c;
+            --sidebar-width: 240px;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        /* ==================== Auth Banner ==================== */
+
+        .auth-banner {
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            background: linear-gradient(90deg, var(--orange), #dd6b20);
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 300;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        .auth-banner.hidden { display: none; }
+        .auth-banner label { color: white; font-weight: 600; white-space: nowrap; }
+        .auth-banner input {
+            flex: 1; max-width: 400px; padding: 8px 12px;
+            border: 2px solid rgba(255,255,255,0.3); border-radius: 6px;
+            background: rgba(255,255,255,0.9); font-size: 0.9em; font-family: monospace;
+        }
+        .auth-banner input:focus { outline: none; border-color: white; }
+        .auth-banner button {
+            padding: 8px 20px; border: 2px solid white; border-radius: 6px;
+            background: transparent; color: white; font-weight: 600;
+            cursor: pointer; transition: all 0.2s; white-space: nowrap;
+        }
+        .auth-banner button:hover { background: white; color: var(--orange); }
+        .auth-banner .auth-hint {
+            color: rgba(255,255,255,0.85); font-size: 0.8em; white-space: nowrap;
+        }
+
+        /* ==================== App Shell ==================== */
+
+        .app-shell { display: flex; min-height: 100vh; }
+
+        /* ==================== Sidebar ==================== */
+
+        .sidebar {
+            width: var(--sidebar-width);
+            background: rgba(26, 32, 44, 0.85);
+            backdrop-filter: blur(20px);
+            color: white;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease;
+        }
+
+        .sidebar-brand {
+            padding: 24px 20px 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        .sidebar-brand h2 {
+            font-size: 1.2em;
+            background: linear-gradient(135deg, #a3bffa 0%, #d6bcfa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .sidebar-brand small { color: var(--gray-500); font-size: 0.7em; display: block; margin-top: 4px; }
+
+        .nav-links {
+            list-style: none;
+            padding: 12px 0;
+            flex: 1;
+        }
+        .nav-links li {
+            padding: 12px 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--gray-300);
+            transition: all 0.2s;
+            border-left: 3px solid transparent;
+            font-size: 0.95em;
+        }
+        .nav-links li:hover { background: rgba(255,255,255,0.05); color: white; }
+        .nav-links li.active {
+            background: rgba(102, 126, 234, 0.15);
+            color: white;
+            border-left-color: var(--primary);
+            font-weight: 600;
+        }
+        .nav-icon { font-size: 1.1em; width: 24px; text-align: center; }
+
+        .sidebar-footer {
+            padding: 16px 20px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .ws-status {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 0.8em; color: var(--gray-500);
+        }
+        .ws-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--red);
+        }
+        .ws-dot.connected { background: var(--green); }
+        .mqtt-status { margin-top: 8px; }
+
+        /* ==================== Main Content ==================== */
+
+        .main-content {
+            flex: 1;
+            margin-left: var(--sidebar-width);
+            padding: 30px;
+            min-height: 100vh;
+        }
+
+        .page { display: none; }
+        .page.active { display: block; }
+
+        .page-header {
+            margin-bottom: 24px;
+        }
+        .page-header h1 {
+            color: white; font-size: 1.8em;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+        }
+        .page-header p { color: rgba(255,255,255,0.7); margin-top: 4px; }
+
+        /* ==================== Cards & Grid ==================== */
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--gray-100);
+        }
+        .card-title { font-size: 1.1em; font-weight: 600; color: var(--gray-800); }
+        .card-subtitle { font-size: 0.8em; color: var(--gray-500); margin-top: 2px; }
+        .card-icon { font-size: 1.4em; }
+
+        /* ==================== Stats ==================== */
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .stat-value { font-size: 2em; font-weight: 700; color: var(--primary); margin-bottom: 4px; }
+        .stat-label { font-size: 0.8em; color: var(--gray-600); text-transform: uppercase; letter-spacing: 0.5px; }
+
+        /* ==================== Feed Widgets ==================== */
+
+        .widget-value .big-value {
+            font-size: 2.8em;
+            font-weight: 700;
+            text-align: center;
+            padding: 16px 0;
+        }
+        .widget-value .unit {
+            font-size: 0.4em;
+            color: var(--gray-500);
+            margin-left: 4px;
+        }
+
+        .widget-gauge {
+            text-align: center;
+            padding: 12px 0;
+        }
+        .widget-gauge svg { width: 140px; height: 80px; }
+        .gauge-value { font-size: 1.6em; font-weight: 700; }
+        .gauge-label { font-size: 0.75em; color: var(--gray-500); }
+
+        .widget-sparkline { padding: 8px 0; }
+        .widget-sparkline canvas { width: 100%; height: 60px; display: block; }
+        .sparkline-value {
+            text-align: center;
+            font-size: 1.4em;
+            font-weight: 700;
+            margin-top: 8px;
+        }
+
+        .feed-meta {
+            font-size: 0.75em;
+            color: var(--gray-500);
+            margin-top: 12px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .widget-config-btn {
+            background: none; border: none; cursor: pointer;
+            color: var(--gray-500); font-size: 1.1em;
+            padding: 2px 6px; border-radius: 4px;
+            transition: all 0.2s; width: auto; margin: 0;
+        }
+        .widget-config-btn:hover { background: var(--gray-100); color: var(--gray-700); }
+
+        /* ==================== Feed List ==================== */
+
+        .feed-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .feed-table th, .feed-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--gray-200);
+        }
+        .feed-table th {
+            background: var(--gray-50);
+            font-weight: 600;
+            color: var(--gray-700);
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .feed-table tr:hover td { background: var(--gray-50); }
+        .feed-key { font-family: monospace; color: var(--primary); font-size: 0.9em; }
+        .feed-badge {
+            display: inline-block; padding: 2px 8px; border-radius: 4px;
+            font-size: 0.75em; font-weight: 600; text-transform: uppercase;
+        }
+        .feed-badge.value { background: #ebf4ff; color: #3182ce; }
+        .feed-badge.gauge { background: #fefcbf; color: #b7791f; }
+        .feed-badge.sparkline { background: #f0fff4; color: #2f855a; }
+
+        /* ==================== Device Cards ==================== */
+
+        .device-card { border-left: 4px solid var(--primary); }
+        .sensor-reading {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 12px; background: var(--gray-50);
+            border-radius: 8px; margin-bottom: 8px;
+        }
+        .sensor-label { font-weight: 500; color: var(--gray-600); text-transform: capitalize; }
+        .sensor-value { font-size: 1.2em; font-weight: 700; color: var(--primary); }
+
+        /* ==================== Controls / Forms ==================== */
+
+        .controls {
+            background: white; border-radius: 12px;
+            padding: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            margin-bottom: 24px;
+        }
+        .controls h3 { margin-bottom: 16px; color: var(--gray-800); }
+
+        .control-group { margin-bottom: 14px; }
+        .control-group label {
+            display: block; margin-bottom: 4px; font-weight: 600;
+            color: var(--gray-700); font-size: 0.9em;
+        }
+        .control-group input, .control-group select {
+            width: 100%; padding: 10px 12px;
+            border: 2px solid var(--gray-200); border-radius: 8px;
+            font-size: 0.95em; transition: border-color 0.2s;
+        }
+        .control-group input:focus, .control-group select:focus {
+            outline: none; border-color: var(--primary);
+        }
+
+        button.btn {
+            padding: 10px 20px; border: none; border-radius: 8px;
+            font-size: 0.95em; font-weight: 600; cursor: pointer;
+            transition: transform 0.2s, opacity 0.2s; width: auto;
+        }
+        button.btn:hover { opacity: 0.9; }
+        button.btn:active { transform: scale(0.98); }
+        .btn-primary { background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%); color: white; }
+        .btn-secondary { background: var(--gray-200); color: var(--gray-700); }
+        .btn-danger { background: var(--red); color: white; }
+        .btn-sm { padding: 6px 12px; font-size: 0.8em; }
+
+        /* ==================== Keys Table ==================== */
+
+        .keys-table { width: 100%; border-collapse: collapse; }
+        .keys-table th, .keys-table td {
+            padding: 10px 14px; text-align: left;
+            border-bottom: 1px solid var(--gray-200);
+        }
+        .keys-table th {
+            background: var(--gray-50); font-weight: 600;
+            color: var(--gray-700); font-size: 0.8em;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .key-prefix { font-family: monospace; color: var(--primary); font-weight: 600; }
+        .key-active { color: var(--green); font-weight: 600; }
+        .key-revoked { color: var(--gray-500); text-decoration: line-through; }
+
+        /* ==================== Modal ==================== */
+
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5); z-index: 400;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .modal-overlay.hidden { display: none; }
+        .modal-content {
+            background: white; border-radius: 16px; padding: 32px;
+            max-width: 500px; width: 90%; max-height: 80vh; overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .modal-content h3 { margin-bottom: 20px; color: var(--gray-800); }
+        .modal-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+
+        .key-display {
+            background: var(--gray-900); color: #68d391; padding: 16px;
+            border-radius: 8px; font-family: monospace; font-size: 0.85em;
+            word-break: break-all; margin: 12px 0; position: relative;
+        }
+        .key-display .copy-btn {
+            position: absolute; top: 8px; right: 8px;
+            background: rgba(255,255,255,0.1); border: none; color: white;
+            padding: 4px 8px; border-radius: 4px; cursor: pointer;
+            font-size: 0.8em; width: auto;
+        }
+        .key-display .copy-btn:hover { background: rgba(255,255,255,0.2); }
+
+        .key-warning { color: var(--orange); font-weight: 600; font-size: 0.85em; margin-top: 8px; }
+
+        /* ==================== Info Cards (Settings) ==================== */
+
+        .info-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px 0; border-bottom: 1px solid var(--gray-100);
+        }
+        .info-row:last-child { border-bottom: none; }
+        .info-label { color: var(--gray-600); font-size: 0.9em; }
+        .info-value { font-weight: 600; color: var(--gray-800); }
+        .info-value.connected { color: var(--green); }
+        .info-value.disconnected { color: var(--gray-500); }
+
+        /* ==================== Empty State ==================== */
+
+        .empty-state {
+            text-align: center; padding: 48px 20px; color: rgba(255,255,255,0.6);
+        }
+        .empty-state .icon { font-size: 3em; margin-bottom: 12px; }
+        .empty-state p { max-width: 400px; margin: 0 auto; }
+
+        /* ==================== Hamburger (mobile) ==================== */
+
+        .hamburger {
+            display: none; position: fixed; top: 12px; left: 12px;
+            z-index: 250; background: rgba(26,32,44,0.9); border: none;
+            color: white; width: 40px; height: 40px; border-radius: 8px;
+            font-size: 1.3em; cursor: pointer; backdrop-filter: blur(10px);
+        }
+
+        /* ==================== Animations ==================== */
+
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .updating { animation: pulse 1s infinite; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .fade-in { animation: fadeIn 0.3s ease; }
+
+        /* ==================== Responsive ==================== */
+
+        @media (max-width: 768px) {
+            .hamburger { display: block; }
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.open { transform: translateX(0); }
+            .main-content { margin-left: 0; padding: 20px; padding-top: 60px; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .grid { grid-template-columns: 1fr; }
+            .auth-banner { flex-wrap: wrap; }
+            .auth-banner .auth-hint { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Auth Banner -->
+    <div class="auth-banner hidden" id="authBanner">
+        <label>API Key:</label>
+        <input type="password" id="apiKeyInput" placeholder="Enter your API key..." autocomplete="off">
+        <button onclick="saveApiKey()">Connect</button>
+        <span class="auth-hint">Generate a key: <code>node server.js --generate-key "Name"</code></span>
+    </div>
+
+    <!-- Mobile Hamburger -->
+    <button class="hamburger" id="hamburger" onclick="toggleSidebar()">&#9776;</button>
+
+    <!-- App Shell -->
+    <div class="app-shell">
+
+        <!-- Sidebar -->
+        <nav class="sidebar" id="sidebar">
+            <div class="sidebar-brand">
+                <h2>IoT Platform</h2>
+                <small>v2.0 - Calliope mini</small>
+            </div>
+            <ul class="nav-links">
+                <li class="active" data-page="dashboard" onclick="showPage('dashboard')">
+                    <span class="nav-icon">&#9632;</span> Dashboard
+                </li>
+                <li data-page="feeds" onclick="showPage('feeds')">
+                    <span class="nav-icon">&#9881;</span> Feeds
+                </li>
+                <li data-page="devices" onclick="showPage('devices')">
+                    <span class="nav-icon">&#9889;</span> Devices
+                </li>
+                <li data-page="settings" onclick="showPage('settings')">
+                    <span class="nav-icon">&#9881;</span> Settings
+                </li>
+            </ul>
+            <div class="sidebar-footer">
+                <div class="ws-status">
+                    <span class="ws-dot" id="wsDot"></span>
+                    <span id="wsLabel">Disconnected</span>
+                </div>
+                <div class="ws-status mqtt-status" id="mqttStatusSidebar" style="display:none;">
+                    <span class="ws-dot" id="mqttDot"></span>
+                    <span id="mqttLabel">MQTT</span>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+
+            <!-- ==================== Dashboard Page ==================== -->
+            <div id="page-dashboard" class="page active">
+                <div class="page-header">
+                    <h1>Dashboard</h1>
+                    <p>Real-time overview of your IoT feeds</p>
+                </div>
+
+                <div class="stats-grid" id="statsGrid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="statDevices">-</div>
+                        <div class="stat-label">Devices</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statFeeds">-</div>
+                        <div class="stat-label">Feeds</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statDataPoints">-</div>
+                        <div class="stat-label">Data Points</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statUptime">-</div>
+                        <div class="stat-label">Uptime</div>
+                    </div>
+                </div>
+
+                <div class="grid" id="feedWidgetsGrid">
+                    <div class="empty-state">
+                        <div class="icon">&#128225;</div>
+                        <p>No feeds yet. Connect a device or send sensor data to get started.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== Feeds Page ==================== -->
+            <div id="page-feeds" class="page">
+                <div class="page-header">
+                    <h1>Feeds</h1>
+                    <p>Manage and configure your data feeds</p>
+                </div>
+
+                <div class="card">
+                    <div id="feedsList">
+                        <p style="color: var(--gray-500); text-align: center; padding: 24px;">Loading feeds...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== Devices Page ==================== -->
+            <div id="page-devices" class="page">
+                <div class="page-header">
+                    <h1>Devices</h1>
+                    <p>Connected devices and command control</p>
+                </div>
+
+                <div class="controls">
+                    <h3>Send Command to Device</h3>
+                    <div class="control-group">
+                        <label>Device ID</label>
+                        <input type="text" id="cmdDeviceId" placeholder="Device001">
+                    </div>
+                    <div class="control-group">
+                        <label>Command</label>
+                        <input type="text" id="cmdCommand" placeholder="led_on">
+                    </div>
+                    <div class="control-group">
+                        <label>Value (optional)</label>
+                        <input type="text" id="cmdValue" placeholder="red">
+                    </div>
+                    <button class="btn btn-primary" onclick="sendCommand()">Send Command</button>
+                </div>
+
+                <div class="grid" id="devicesGrid">
+                    <div class="empty-state">
+                        <div class="icon">&#128225;</div>
+                        <p>No devices connected yet...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ==================== Settings Page ==================== -->
+            <div id="page-settings" class="page">
+                <div class="page-header">
+                    <h1>Settings</h1>
+                    <p>API keys, server info, and configuration</p>
+                </div>
+
+                <!-- API Keys -->
+                <div class="card" style="margin-bottom: 20px;">
+                    <div class="card-header">
+                        <div>
+                            <div class="card-title">API Keys</div>
+                            <div class="card-subtitle">Generate and manage API access keys</div>
+                        </div>
+                        <button class="btn btn-primary btn-sm" onclick="generateApiKey()">+ Generate Key</button>
+                    </div>
+                    <div id="keysList">
+                        <p style="color: var(--gray-500); text-align: center; padding: 16px;">Loading...</p>
+                    </div>
+                </div>
+
+                <!-- Server Info -->
+                <div class="card" style="margin-bottom: 20px;">
+                    <div class="card-header">
+                        <div class="card-title">Server Info</div>
+                    </div>
+                    <div id="serverInfoContent">
+                        <p style="color: var(--gray-500); padding: 8px 0;">Loading...</p>
+                    </div>
+                </div>
+
+                <!-- MQTT Status -->
+                <div class="card">
+                    <div class="card-header">
+                        <div class="card-title">MQTT Bridge</div>
+                    </div>
+                    <div id="mqttInfoContent">
+                        <p style="color: var(--gray-500); padding: 8px 0;">Loading...</p>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Feed Config Modal -->
+    <div class="modal-overlay hidden" id="feedConfigModal">
+        <div class="modal-content">
+            <h3>Configure Feed</h3>
+            <input type="hidden" id="modalFeedKey">
+            <div class="control-group">
+                <label>Display Name</label>
+                <input type="text" id="modalFeedName" placeholder="Temperature Sensor">
+            </div>
+            <div class="control-group">
+                <label>Unit Type</label>
+                <input type="text" id="modalFeedUnitType" placeholder="e.g. Temperature">
+            </div>
+            <div class="control-group">
+                <label>Unit Symbol</label>
+                <input type="text" id="modalFeedUnitSymbol" placeholder="e.g. C, %, lux">
+            </div>
+            <div class="control-group">
+                <label>Widget Type</label>
+                <select id="modalFeedWidgetType">
+                    <option value="value">Value Display</option>
+                    <option value="gauge">Gauge</option>
+                    <option value="sparkline">Sparkline Chart</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>Accent Color</label>
+                <input type="color" id="modalFeedColor" value="#667eea">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('feedConfigModal')">Cancel</button>
+                <button class="btn btn-primary" onclick="saveFeedConfig()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Key Generated Modal -->
+    <div class="modal-overlay hidden" id="keyModal">
+        <div class="modal-content">
+            <h3>API Key Generated</h3>
+            <p style="color: var(--gray-600); margin-bottom: 12px;">Your new API key has been created. Copy it now - it will not be shown again.</p>
+            <div class="key-display">
+                <span id="generatedKeyValue"></span>
+                <button class="copy-btn" onclick="copyKey()">Copy</button>
+            </div>
+            <p class="key-warning">This key will only be shown once. Save it somewhere safe.</p>
+            <div class="modal-actions">
+                <button class="btn btn-primary" onclick="closeModal('keyModal')">Done</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+// ==================== Configuration ====================
+let apiKey = sessionStorage.getItem('iot_api_key') || '';
+let ws = null;
+let reconnectTimeout = null;
+let feedsCache = [];
+
+// ==================== API Helper ====================
+async function apiFetch(url, options = {}) {
+    const headers = { 'Content-Type': 'application/json', ...(options.headers || {}) };
+    if (apiKey) headers['X-AIO-Key'] = apiKey;
+    try {
+        const response = await fetch(url, { ...options, headers });
+        if (response.status === 401 || response.status === 403) {
+            showAuthBanner();
+            throw new Error('Authentication required');
+        }
+        return response;
+    } catch (err) {
+        if (err.message === 'Authentication required') throw err;
+        console.error('API error:', err);
+        throw err;
+    }
+}
+
+// ==================== Auth ====================
+function showAuthBanner() {
+    document.getElementById('authBanner').classList.remove('hidden');
+}
+
+function hideAuthBanner() {
+    document.getElementById('authBanner').classList.add('hidden');
+}
+
+function saveApiKey() {
+    const input = document.getElementById('apiKeyInput');
+    const key = input.value.trim();
+    if (!key) return;
+    apiKey = key;
+    sessionStorage.setItem('iot_api_key', key);
+    hideAuthBanner();
+    loadAll();
+    connectWebSocket();
+}
+
+// ==================== Page Navigation ====================
+function showPage(pageName) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + pageName).classList.add('active');
+    document.querySelectorAll('.nav-links li').forEach(li => {
+        li.classList.toggle('active', li.dataset.page === pageName);
+    });
+    // Close sidebar on mobile
+    document.getElementById('sidebar').classList.remove('open');
+
+    // Load page data
+    if (pageName === 'dashboard') { loadStatus(); loadFeedWidgets(); }
+    if (pageName === 'feeds') loadFeedsList();
+    if (pageName === 'devices') loadDevices();
+    if (pageName === 'settings') { loadKeys(); loadServerInfo(); }
+}
+
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+}
+
+// ==================== Utilities ====================
+function formatUptime(seconds) {
+    const d = Math.floor(seconds / 86400);
+    const h = Math.floor((seconds % 86400) / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    if (d > 0) return d + 'd ' + h + 'h';
+    if (h > 0) return h + 'h ' + m + 'm';
+    return m + 'm';
+}
+
+function formatTimestamp(ts) {
+    if (!ts) return '-';
+    const d = new Date(ts + (ts.includes('Z') || ts.includes('+') ? '' : 'Z'));
+    return d.toLocaleString();
+}
+
+function escapeHtml(str) {
+    const d = document.createElement('div');
+    d.textContent = str;
+    return d.innerHTML;
+}
+
+// ==================== Dashboard: Status ====================
+async function loadStatus() {
+    try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        document.getElementById('statDevices').textContent = data.devices;
+        document.getElementById('statFeeds').textContent = data.feeds;
+        document.getElementById('statDataPoints').textContent = data.total_data_points;
+        document.getElementById('statUptime').textContent = formatUptime(data.uptime);
+
+        // MQTT sidebar indicator
+        if (data.mqtt) {
+            document.getElementById('mqttStatusSidebar').style.display = 'flex';
+            document.getElementById('mqttDot').className = 'ws-dot' + (data.mqtt.connected ? ' connected' : '');
+            document.getElementById('mqttLabel').textContent = 'MQTT: ' + (data.mqtt.connected ? 'connected' : 'disconnected');
+        }
+    } catch (e) { /* status is exempt from auth */ }
+}
+
+// ==================== Dashboard: Feed Widgets ====================
+async function loadFeedWidgets() {
+    try {
+        const res = await apiFetch('/api/feeds');
+        const feeds = await res.json();
+        feedsCache = feeds;
+        const grid = document.getElementById('feedWidgetsGrid');
+
+        if (!feeds.length) {
+            grid.innerHTML = '<div class="empty-state"><div class="icon">&#128225;</div><p>No feeds yet. Connect a device or send sensor data to get started.</p></div>';
+            return;
+        }
+
+        grid.innerHTML = '';
+        for (const feed of feeds) {
+            grid.appendChild(createFeedWidget(feed));
+        }
+
+        // Load sparkline data for sparkline widgets
+        for (const feed of feeds) {
+            if (feed.widget_type === 'sparkline') {
+                loadSparklineData(feed.key);
+            }
+        }
+    } catch (e) { console.error('Error loading feeds:', e); }
+}
+
+function createFeedWidget(feed) {
+    const card = document.createElement('div');
+    card.className = 'card fade-in';
+    card.id = 'widget-' + feed.key;
+    const color = feed.color || '#667eea';
+    const value = feed.last_value !== null && feed.last_value !== undefined ? Number(feed.last_value).toFixed(1) : '-';
+    const unit = feed.unit_symbol || '';
+    const name = escapeHtml(feed.name || feed.key);
+
+    let widgetBody = '';
+    if (feed.widget_type === 'gauge') {
+        widgetBody = '<div class="widget-gauge">' + renderGaugeSVG(value, color) +
+            '<div class="gauge-value" style="color:' + color + '">' + value + '<span style="font-size:0.5em;color:var(--gray-500)">' + escapeHtml(unit) + '</span></div></div>';
+    } else if (feed.widget_type === 'sparkline') {
+        widgetBody = '<div class="widget-sparkline"><canvas id="spark-' + feed.key + '" height="60"></canvas>' +
+            '<div class="sparkline-value" style="color:' + color + '">' + value + ' <span style="font-size:0.6em;color:var(--gray-500)">' + escapeHtml(unit) + '</span></div></div>';
+    } else {
+        widgetBody = '<div class="widget-value"><div class="big-value" style="color:' + color + '">' + value + '<span class="unit">' + escapeHtml(unit) + '</span></div></div>';
+    }
+
+    card.innerHTML =
+        '<div class="card-header">' +
+            '<div><div class="card-title">' + name + '</div>' +
+            '<div class="card-subtitle">' + escapeHtml(feed.key) + '</div></div>' +
+            '<button class="widget-config-btn" onclick="openFeedConfig(\'' + feed.key + '\')" title="Configure">&#9881;</button>' +
+        '</div>' +
+        widgetBody +
+        '<div class="feed-meta"><span>' + (feed.device_id || '') + '</span><span>' + formatTimestamp(feed.last_updated) + '</span></div>';
+
+    return card;
+}
+
+function renderGaugeSVG(value, color) {
+    const num = parseFloat(value) || 0;
+    const pct = Math.min(Math.max(num / 100, 0), 1);
+    const angle = pct * 180;
+    const rad = angle * Math.PI / 180;
+    const x = 50 + 40 * Math.cos(Math.PI - rad);
+    const y = 55 - 40 * Math.sin(Math.PI - rad);
+    const largeArc = angle > 180 ? 1 : 0;
+    return '<svg viewBox="0 0 100 60">' +
+        '<path d="M 10 55 A 40 40 0 0 1 90 55" fill="none" stroke="#e2e8f0" stroke-width="6" stroke-linecap="round"/>' +
+        '<path d="M 10 55 A 40 40 0 ' + largeArc + ' 1 ' + x.toFixed(1) + ' ' + y.toFixed(1) + '" fill="none" stroke="' + color + '" stroke-width="6" stroke-linecap="round"/>' +
+        '</svg>';
+}
+
+async function loadSparklineData(feedKey) {
+    try {
+        const res = await apiFetch('/api/feeds/' + feedKey + '?limit=30');
+        const feed = await res.json();
+        if (feed.data && feed.data.length > 0) {
+            const canvas = document.getElementById('spark-' + feedKey);
+            if (canvas) drawSparkline(canvas, feed.data.reverse(), feed.color || '#667eea');
+        }
+    } catch (e) { /* ignore */ }
+}
+
+function drawSparkline(canvas, dataPoints, color) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width = canvas.offsetWidth * 2;
+    const h = canvas.height = 120;
+    ctx.clearRect(0, 0, w, h);
+
+    if (dataPoints.length < 2) return;
+    const values = dataPoints.map(d => d.value);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = max - min || 1;
+    const pad = 8;
+
+    ctx.beginPath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.lineJoin = 'round';
+
+    for (let i = 0; i < values.length; i++) {
+        const x = pad + (i / (values.length - 1)) * (w - pad * 2);
+        const y = pad + (1 - (values[i] - min) / range) * (h - pad * 2);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Fill
+    ctx.lineTo(pad + (w - pad * 2), h - pad);
+    ctx.lineTo(pad, h - pad);
+    ctx.closePath();
+    ctx.fillStyle = color + '18';
+    ctx.fill();
+}
+
+// ==================== Feeds Page ====================
+async function loadFeedsList() {
+    try {
+        const res = await apiFetch('/api/feeds');
+        const feeds = await res.json();
+        feedsCache = feeds;
+        const container = document.getElementById('feedsList');
+
+        if (!feeds.length) {
+            container.innerHTML = '<p style="color: var(--gray-500); text-align:center; padding:24px;">No feeds yet. Send sensor data to auto-create feeds.</p>';
+            return;
+        }
+
+        let html = '<table class="feed-table"><thead><tr><th>Key</th><th>Name</th><th>Last Value</th><th>Widget</th><th>Updated</th><th></th></tr></thead><tbody>';
+        for (const f of feeds) {
+            const val = f.last_value !== null && f.last_value !== undefined ? Number(f.last_value).toFixed(1) : '-';
+            html += '<tr>' +
+                '<td class="feed-key">' + escapeHtml(f.key) + '</td>' +
+                '<td>' + escapeHtml(f.name) + (f.unit_symbol ? ' <small>(' + escapeHtml(f.unit_symbol) + ')</small>' : '') + '</td>' +
+                '<td><strong>' + val + '</strong></td>' +
+                '<td><span class="feed-badge ' + f.widget_type + '">' + f.widget_type + '</span></td>' +
+                '<td style="font-size:0.85em;color:var(--gray-500)">' + formatTimestamp(f.last_updated) + '</td>' +
+                '<td><button class="btn btn-secondary btn-sm" onclick="openFeedConfig(\'' + f.key + '\')">Configure</button></td>' +
+                '</tr>';
+        }
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    } catch (e) { console.error('Error loading feeds:', e); }
+}
+
+// ==================== Feed Config Modal ====================
+function openFeedConfig(feedKey) {
+    const feed = feedsCache.find(f => f.key === feedKey);
+    if (!feed) return;
+    document.getElementById('modalFeedKey').value = feedKey;
+    document.getElementById('modalFeedName').value = feed.name || '';
+    document.getElementById('modalFeedUnitType').value = feed.unit_type || '';
+    document.getElementById('modalFeedUnitSymbol').value = feed.unit_symbol || '';
+    document.getElementById('modalFeedWidgetType').value = feed.widget_type || 'value';
+    document.getElementById('modalFeedColor').value = feed.color || '#667eea';
+    document.getElementById('feedConfigModal').classList.remove('hidden');
+}
+
+async function saveFeedConfig() {
+    const key = document.getElementById('modalFeedKey').value;
+    const data = {
+        name: document.getElementById('modalFeedName').value,
+        unit_type: document.getElementById('modalFeedUnitType').value,
+        unit_symbol: document.getElementById('modalFeedUnitSymbol').value,
+        widget_type: document.getElementById('modalFeedWidgetType').value,
+        color: document.getElementById('modalFeedColor').value
+    };
+    try {
+        const res = await apiFetch('/api/feeds/' + key, {
+            method: 'PATCH',
+            body: JSON.stringify(data)
+        });
+        const result = await res.json();
+        if (result.status === 'ok') {
+            closeModal('feedConfigModal');
+            loadFeedWidgets();
+            loadFeedsList();
+        } else {
+            alert('Error: ' + result.message);
+        }
+    } catch (e) { alert('Error saving feed config: ' + e.message); }
+}
+
+// ==================== Devices Page ====================
+async function loadDevices() {
+    try {
+        const res = await apiFetch('/api/devices');
+        const devices = await res.json();
+        const grid = document.getElementById('devicesGrid');
+
+        if (!devices.length) {
+            grid.innerHTML = '<div class="empty-state"><div class="icon">&#128225;</div><p>No devices connected yet...</p></div>';
+            return;
+        }
+
+        grid.innerHTML = '';
+        for (const device of devices) {
+            let sensorData = {};
+            try {
+                const sRes = await apiFetch('/api/sensor/' + device.device_id);
+                if (sRes.ok) sensorData = await sRes.json();
+            } catch (e) { /* ignore */ }
+
+            const card = document.createElement('div');
+            card.className = 'card device-card fade-in';
+            card.id = 'device-' + device.device_id;
+
+            let sensorsHTML = '';
+            for (const [k, v] of Object.entries(sensorData)) {
+                if (k !== 'timestamp' && k !== 'status') {
+                    sensorsHTML += '<div class="sensor-reading"><span class="sensor-label">' + escapeHtml(k) +
+                        '</span><span class="sensor-value">' + v + '</span></div>';
+                }
+            }
+            if (!sensorsHTML) sensorsHTML = '<p style="color:var(--gray-500);font-size:0.9em;">No sensor data</p>';
+
+            card.innerHTML =
+                '<div class="card-header"><div><div class="card-title">' + escapeHtml(device.name) +
+                '</div><div class="card-subtitle">ID: ' + escapeHtml(device.device_id) + '</div></div>' +
+                '<div class="card-icon">&#128225;</div></div>' +
+                sensorsHTML +
+                '<div class="feed-meta"><span>' + escapeHtml(device.ip_address || '') +
+                '</span><span>' + formatTimestamp(device.last_seen) + '</span></div>';
+
+            grid.appendChild(card);
+        }
+    } catch (e) { console.error('Error loading devices:', e); }
+}
+
+async function sendCommand() {
+    const deviceId = document.getElementById('cmdDeviceId').value.trim();
+    const command = document.getElementById('cmdCommand').value.trim();
+    const value = document.getElementById('cmdValue').value.trim();
+
+    if (!deviceId || !command) { alert('Please enter device ID and command'); return; }
+
+    try {
+        const res = await apiFetch('/api/command', {
+            method: 'POST',
+            body: JSON.stringify({ device_id: deviceId, command, value })
+        });
+        const result = await res.json();
+        if (result.status === 'ok') {
+            alert('Command sent successfully!\n\nDevice: ' + deviceId + '\nCommand: ' + command + (value ? '\nValue: ' + value : ''));
+        } else {
+            alert('Error: ' + result.message);
+        }
+    } catch (e) { alert('Failed to send command: ' + e.message); }
+}
+
+// ==================== Settings: API Keys ====================
+async function loadKeys() {
+    try {
+        const res = await apiFetch('/api/keys');
+        const keys = await res.json();
+        const container = document.getElementById('keysList');
+
+        if (!keys.length) {
+            container.innerHTML = '<p style="color:var(--gray-500);text-align:center;padding:16px;">No API keys yet. Generate your first key above.</p>';
+            return;
+        }
+
+        let html = '<table class="keys-table"><thead><tr><th>Prefix</th><th>Name</th><th>Status</th><th>Created</th><th>Last Used</th><th></th></tr></thead><tbody>';
+        for (const k of keys) {
+            const status = k.active ? 'Active' : 'Revoked';
+            const cls = k.active ? 'key-active' : 'key-revoked';
+            html += '<tr><td class="key-prefix">' + escapeHtml(k.key_prefix) + '...</td>' +
+                '<td>' + escapeHtml(k.name) + '</td>' +
+                '<td class="' + cls + '">' + status + '</td>' +
+                '<td style="font-size:0.85em">' + formatTimestamp(k.created_at) + '</td>' +
+                '<td style="font-size:0.85em">' + (k.last_used ? formatTimestamp(k.last_used) : 'Never') + '</td>' +
+                '<td>' + (k.active ? '<button class="btn btn-danger btn-sm" onclick="revokeKey(' + k.id + ')">Revoke</button>' : '') + '</td></tr>';
+        }
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    } catch (e) { console.error('Error loading keys:', e); }
+}
+
+async function generateApiKey() {
+    const name = prompt('Enter a name for this API key:');
+    if (!name) return;
+    try {
+        const res = await apiFetch('/api/keys/generate', {
+            method: 'POST',
+            body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        if (data.status === 'ok') {
+            document.getElementById('generatedKeyValue').textContent = data.key;
+            document.getElementById('keyModal').classList.remove('hidden');
+            loadKeys();
+        } else {
+            alert('Error: ' + data.message);
+        }
+    } catch (e) { alert('Error generating key: ' + e.message); }
+}
+
+function copyKey() {
+    const key = document.getElementById('generatedKeyValue').textContent;
+    navigator.clipboard.writeText(key).then(() => {
+        const btn = document.querySelector('#keyModal .copy-btn');
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy', 2000);
+    });
+}
+
+async function revokeKey(id) {
+    if (!confirm('Are you sure you want to revoke this API key? This cannot be undone.')) return;
+    try {
+        const res = await apiFetch('/api/keys/' + id, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.status === 'ok') loadKeys();
+        else alert('Error: ' + data.message);
+    } catch (e) { alert('Error revoking key: ' + e.message); }
+}
+
+// ==================== Settings: Server Info ====================
+async function loadServerInfo() {
+    try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        let html = '';
+        html += '<div class="info-row"><span class="info-label">Version</span><span class="info-value">' + data.version + '</span></div>';
+        html += '<div class="info-row"><span class="info-label">Status</span><span class="info-value connected">' + data.status + '</span></div>';
+        html += '<div class="info-row"><span class="info-label">Uptime</span><span class="info-value">' + formatUptime(data.uptime) + '</span></div>';
+        html += '<div class="info-row"><span class="info-label">Devices</span><span class="info-value">' + data.devices + '</span></div>';
+        html += '<div class="info-row"><span class="info-label">Feeds</span><span class="info-value">' + data.feeds + '</span></div>';
+        html += '<div class="info-row"><span class="info-label">Data Points</span><span class="info-value">' + data.total_data_points + '</span></div>';
+        html += '<div class="info-row"><span class="info-label">WebSocket Clients</span><span class="info-value">' + data.websocket_clients + '</span></div>';
+        document.getElementById('serverInfoContent').innerHTML = html;
+
+        // MQTT info
+        if (data.mqtt) {
+            let mqttHtml = '';
+            mqttHtml += '<div class="info-row"><span class="info-label">Status</span><span class="info-value ' + (data.mqtt.connected ? 'connected' : 'disconnected') + '">' + (data.mqtt.connected ? 'Connected' : 'Disconnected') + '</span></div>';
+            mqttHtml += '<div class="info-row"><span class="info-label">Broker</span><span class="info-value">' + escapeHtml(data.mqtt.host) + '</span></div>';
+            document.getElementById('mqttInfoContent').innerHTML = mqttHtml;
+        } else {
+            document.getElementById('mqttInfoContent').innerHTML = '<p style="color:var(--gray-500);padding:8px 0;">MQTT not configured. Set MQTT_HOST in .env to enable.</p>';
+        }
+    } catch (e) { console.error('Error loading server info:', e); }
+}
+
+// ==================== Modal ====================
+function closeModal(id) {
+    document.getElementById(id).classList.add('hidden');
+}
+
+// Close modals on backdrop click
+document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('modal-overlay')) {
+        e.target.classList.add('hidden');
+    }
+});
+
+// ==================== WebSocket ====================
+function connectWebSocket() {
+    if (ws) { try { ws.close(); } catch(e){} }
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const keyParam = apiKey ? '?key=' + encodeURIComponent(apiKey) : '';
+    const wsUrl = protocol + '//' + window.location.host + '/api/ws' + keyParam;
+
+    ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+        document.getElementById('wsDot').className = 'ws-dot connected';
+        document.getElementById('wsLabel').textContent = 'Live Updates';
+        clearTimeout(reconnectTimeout);
+    };
+
+    ws.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'sensor_data') {
+                updateWidgetsFromWS(data.device_id, data.data, data.timestamp);
+            }
+        } catch (e) { /* ignore */ }
+    };
+
+    ws.onclose = () => {
+        document.getElementById('wsDot').className = 'ws-dot';
+        document.getElementById('wsLabel').textContent = 'Disconnected';
+        reconnectTimeout = setTimeout(connectWebSocket, 3000);
+    };
+
+    ws.onerror = () => {};
+}
+
+function updateWidgetsFromWS(deviceId, sensorData, timestamp) {
+    // Update feed widgets on dashboard
+    for (const [sensorType, value] of Object.entries(sensorData)) {
+        const feedKey = (deviceId + '_' + sensorType).toLowerCase().replace(/[^a-z0-9_]/g, '_');
+        const widget = document.getElementById('widget-' + feedKey);
+        if (widget) {
+            widget.classList.add('updating');
+            setTimeout(() => widget.classList.remove('updating'), 1000);
+
+            // Update cached feed data
+            const cached = feedsCache.find(f => f.key === feedKey);
+            if (cached) { cached.last_value = value; cached.last_updated = timestamp; }
+
+            // Re-render widget body
+            const feed = cached || { key: feedKey, widget_type: 'value', color: '#667eea', unit_symbol: '' };
+            feed.last_value = value;
+            const newWidget = createFeedWidget(feed);
+            widget.replaceWith(newWidget);
+        }
+    }
+
+    // Update device card on devices page
+    const card = document.getElementById('device-' + deviceId);
+    if (card) {
+        card.classList.add('updating');
+        setTimeout(() => card.classList.remove('updating'), 1000);
+    }
+
+    // Update stats
+    loadStatus();
+}
+
+// ==================== Initialization ====================
+function loadAll() {
+    loadStatus();
+    loadFeedWidgets();
+}
+
+// Check if auth is needed
+async function checkAuth() {
+    try {
+        // Status is exempt - always works
+        const statusRes = await fetch('/api/status');
+        await statusRes.json();
+
+        // Try a protected endpoint
+        const res = await apiFetch('/api/devices');
+        if (res.ok) {
+            hideAuthBanner();
+            loadAll();
+            connectWebSocket();
+        }
+    } catch (e) {
+        if (!apiKey) {
+            showAuthBanner();
+        }
+        // Still load status (exempt from auth)
+        loadStatus();
+    }
+}
+
+checkAuth();
+
+// Auto-refresh status every 30 seconds
+setInterval(loadStatus, 30000);
+</script>
+</body>
+</html>
